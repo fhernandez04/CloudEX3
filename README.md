@@ -13,6 +13,39 @@ containers are as follows:
 2. Use a Multi-stage Dockerfile to minimize the size of the image.
 3. Publish to a public container registry (e.g., Docker Hub) your images.
 
+## Explanations
+- We split the code into microservices
+- We create one Dockerfile per service (GET, POST, PUT, DELETE, HOMEPAGE)
+- A docker-compose.yml file uses these Dockerfiles/images to spin up containers
+- nginx.conf routes incoming traffic to each container based on the request type
+
+What we're doing is splitting each of our endpoints (which isn't ideal in real-world scenarios, but serves well for simulating microservices) into separate containers. In our case, the GET endpoint for api/books is responsible for initializing and populating the database. That’s why all other containers wait for it to be up before connecting to the database using an environment variable named DATABASE_URI.
+
+Request traffic to the server is managed by NGINX, which filters incoming HTTP requests based on whether they are GET, POST, PUT, DELETE, or generic (frontend), and forwards them to the corresponding container. NGINX runs in its own container.
+
+Each service container exposes its internal port 3030 within the Docker internal network, meaning it cannot be accessed directly from outside. This way, we delegate all external access to NGINX.
+
+Inside its container, NGINX listens on port 3030 for HTTP connections. However, externally (from your machine or any client), you don't access port 3030 directly — you use port 8080 on your host.
+
+**Port 3030**: is the port NGINX listens to inside its container.
+
+**Port 8080**: is the port on your host machine through which you access the service.
+
+A request first reaches port 8080 on your machine, which is mapped to port 3030 of the NGINX container. Inside the container, NGINX receives the request on port 3030. Based on the route and HTTP method (GET, POST, PUT, DELETE, etc.), NGINX decides which microservice container to forward the request to.
+
+The **nginx.conf** file defines which container and port each request should be forwarded to. For example, if the GET container exposes port 3030, the file would include:
+
+    upstream get_service {
+        server get:3030;
+    }
+
+Summary:
+    GET Container: exposes port 3030
+    NGINX Container: listens on port 3030 internally but is accessed externally through port 8080
+    It routes the request to the exposed port of the appropriate microservice (e.g., GET)
+
+--------------------------------------------------------------------------------------
+
 ## Explicaciones
 
 - Dividimos el código en microservicios
@@ -57,3 +90,4 @@ Resumen:
     Contenedor GET: expone puerto 3030
     Contenedor NGINX: escucha en el 3030 pero el servicio es accedido desde el 8080
                       redirige al puerto expuesto por GET
+                      
