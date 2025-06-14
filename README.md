@@ -15,6 +15,7 @@ containers are as follows:
 
 ## Explicaciones
 
+- Dividimos el código en microservicios
 - Creamos un Dockerfile por servicio (GET, POST, PUT, DELETE, HOMEPAGE)
 - docker-compose.yml que emplea estos dockerfiles/imagenes para generar contenedores
 - nginx.conf redirige el tráfico de peticiones a cada contenedor según la naturaleza de
