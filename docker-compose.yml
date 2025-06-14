@@ -1,11 +1,21 @@
 version: '3.8'
 
+# Docker Compose file for a microservices architecture with NGINX and MongoDB
+
+# Cada microservicio (`get`, `post`, `put`, `delete`, `homepage`) tiene su propio contenedor y Dockerfile.
+# Todos los servicios usan la misma base de datos MongoDB, que se inicializa con usuario y contraseña en GET,
+# por esto el get es una condición para los demás servicios en el depends_on.
+# NGINX actúa como reverse proxy y expone el sistema en el puerto 8080 del host, redirigiendo las peticiones
+# al contenedor correspondiente.
+# Los datos de MongoDB se guardan en un volumen persistente llamado `mongo_data`.
+
 services:
   homepage:
     environment:
       - DATABASE_URI=mongodb://mongodb:testmongo@mongodb:27017/mydb?authSource=admin
     depends_on:
       - mongodb
+      - get
     build:
       context: .
       dockerfile: Dockerfile.frontend
@@ -28,6 +38,7 @@ services:
       - DATABASE_URI=mongodb://mongodb:testmongo@mongodb:27017/mydb?authSource=admin
     depends_on:
       - mongodb
+      - get
     build:
       context: .
       dockerfile: Dockerfile.post
@@ -39,6 +50,7 @@ services:
       - DATABASE_URI=mongodb://mongodb:testmongo@mongodb:27017/mydb?authSource=admin
     depends_on:
       - mongodb
+      - get
     build:
       context: .
       dockerfile: Dockerfile.put
@@ -50,6 +62,7 @@ services:
       - DATABASE_URI=mongodb://mongodb:testmongo@mongodb:27017/mydb?authSource=admin
     depends_on:
       - mongodb
+      - get
     build:
       context: .
       dockerfile: Dockerfile.delete
