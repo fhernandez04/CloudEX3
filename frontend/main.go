@@ -2,12 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"html/template"
 	"io"
-	"log"
 	"net/http"
-	"slices"
 	"time"
 
 	"os"
@@ -64,102 +61,15 @@ func (t *Template) Render(w io.Writer, name string, data interface{}, ctx echo.C
 	return t.tmpl.ExecuteTemplate(w, name, data)
 }
 
-// Here we make sure the connection to the database is correct and initial
-// configurations exists. Otherwise, we create the proper database and collection
-// we will store the data.
-// To ensure correct management of the collection, we create a return a
-// reference to the collection to always be used. Make sure if you create other
-// files, that you pass the proper value to ensure communication with the
-// database
-// More on what bson means: https://www.mongodb.com/docs/drivers/go/current/fundamentals/bson/
-func prepareDatabase(client *mongo.Client, dbName string, collecName string) (*mongo.Collection, error) {
-	db := client.Database(dbName)
-
-	names, err := db.ListCollectionNames(context.TODO(), bson.D{{}})
-	if err != nil {
-		return nil, err
-	}
-	if !slices.Contains(names, collecName) {
-		cmd := bson.D{{Key: "create", Value: collecName}}
-		var result bson.M
-		if err = db.RunCommand(context.TODO(), cmd).Decode(&result); err != nil {
-			log.Fatal(err)
-			return nil, err
-		}
-	}
-
-	coll := db.Collection(collecName)
-	return coll, nil
-}
-
-// Here we prepare some fictional data and we insert it into the database
-// the first time we connect to it. Otherwise, we check if it already exists.
-func prepareData(client *mongo.Client, coll *mongo.Collection) {
-	startData := []BookStore{
-		{
-			ID:          "example1",
-			BookName:    "The Vortex",
-			BookAuthor:  "José Eustasio Rivera",
-			BookEdition: "958-30-0804-4",
-			BookPages:   "292",
-			BookYear:    "1924",
-		},
-		{
-			ID:          "example2",
-			BookName:    "Frankenstein",
-			BookAuthor:  "Mary Shelley",
-			BookEdition: "978-3-649-64609-9",
-			BookPages:   "280",
-			BookYear:    "1818",
-		},
-		{
-			ID:          "example3",
-			BookName:    "The Black Cat",
-			BookAuthor:  "Edgar Allan Poe",
-			BookEdition: "978-3-99168-238-7",
-			BookPages:   "280",
-			BookYear:    "1843",
-		},
-	}
-
-	// This syntax helps us iterate over arrays. It behaves similar to Python
-	// However, range always returns a tuple: (idx, elem). You can ignore the idx
-	// by using _.
-	// In the topic of function returns: sadly, there is no standard on return types from function. Most functions
-	// return a tuple with (res, err), but this is not granted. Some functions
-	// might return a ret value that includes res and the err, others might have
-	// an out parameter.
-	for _, book := range startData {
-		cursor, err := coll.Find(context.TODO(), book)
-		var results []BookStore
-		if err = cursor.All(context.TODO(), &results); err != nil {
-			panic(err)
-		}
-		if len(results) > 1 {
-			log.Fatal("more records were found")
-		} else if len(results) == 0 {
-			result, err := coll.InsertOne(context.TODO(), book)
-			if err != nil {
-				panic(err)
-			} else {
-				fmt.Printf("%+v\n", result)
-			}
-
-		} else {
-			for _, res := range results {
-				cursor.Decode(&res)
-				fmt.Printf("%+v\n", res)
-			}
-		}
-	}
-}
-
 // Generic method to perform "SELECT * FROM BOOKS" (if this was SQL, which
 // it is not :D ), and then we convert it into an array of map. In Golang, you
 // define a map by writing map[<key type>]<value type>{<key>:<value>}.
 // interface{} is a special type in Golang, basically a wildcard...
 func findAllBooks(coll *mongo.Collection) []BookStore {
 	cursor, err := coll.Find(context.TODO(), bson.D{{}})
+	if err != nil {
+		panic(err)
+	}
 	var results []BookStore
 	if err = cursor.All(context.TODO(), &results); err != nil {
 		panic(err)
@@ -193,11 +103,8 @@ func main() {
 		}
 	}()
 
-	// You can use such name for the database and collection, or come up with
-	// one by yourself!
-	coll, err := prepareDatabase(client, "exercise-1", "information")
-
-	prepareData(client, coll)
+	// connection to the database and collection
+	coll := client.Database("exercise-3").Collection("information")
 
 	// Here we prepare the server
 	e := echo.New()
@@ -282,93 +189,6 @@ func main() {
 
 	e.GET("/create", func(c echo.Context) error {
 		return c.NoContent(http.StatusNoContent)
-	})
-
-	// You will have to expand on the allowed methods for the path
-	// `/api/route`, following the common standard.
-	// A very good documentation is found here:
-	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods
-	// It specifies the expected returned codes for each type of request
-	// method.
-	e.GET("/api/books", func(c echo.Context) error {
-		books := findAllBooks(coll)
-		return c.JSON(http.StatusOK, books)
-	})
-
-	e.POST("/api/books", func(c echo.Context) error {
-		var book BookStore
-		if err := c.Bind(&book); err != nil { // bind the request body to the book struct
-			return c.String(http.StatusBadRequest, "Invalid input")
-		}
-
-		if book.ID == "" || book.BookName == "" || book.BookAuthor == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "id, title and author are required"})
-		}
-
-		// Check if the book already exists
-		filter := bson.M{"id": book.ID}
-		count, err := coll.CountDocuments(context.TODO(), filter)
-		if err != nil {
-			return c.String(http.StatusInternalServerError, "Failed to check for duplicates")
-		}
-		if count > 0 {
-			return c.JSON(http.StatusConflict, map[string]string{"error": "Book with the same ID already exists"})
-		}
-
-		// Insert the new book
-		result, err := coll.InsertOne(context.TODO(), book)
-		if err != nil {
-			return c.String(http.StatusInternalServerError, "Failed to insert book")
-		}
-
-		book.MongoID = result.InsertedID.(primitive.ObjectID)
-		return c.JSON(http.StatusCreated, book)
-	})
-
-	e.PUT("/api/books/:id", func(c echo.Context) error {
-		id := c.Param("id") // get the id from the URL parameter
-
-		var book BookStore
-		if err := c.Bind(&book); err != nil { // bind the request body to the book struct
-			return c.String(http.StatusBadRequest, "Invalid input")
-		}
-
-		if book.BookName == "" || book.BookAuthor == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "title and author are required"})
-		}
-
-		book.ID = id // ensure the ID is set to the one from the URL
-
-		filter := bson.M{"id": id}     // filter to find the book by ID
-		update := bson.M{"$set": book} // update the book with the new data
-
-		result, err := coll.UpdateOne(context.TODO(), filter, update) // perform the update
-		// Check if the update was successful
-		if err != nil {
-			return c.String(http.StatusInternalServerError, "Failed to update book")
-		}
-
-		if result.MatchedCount == 0 { // no book found with the given ID
-			return c.String(http.StatusNotFound, "Book not found")
-		}
-
-		return c.JSON(http.StatusOK, book)
-	})
-
-	e.DELETE("/api/books/:id", func(c echo.Context) error {
-		id := c.Param("id")                                   // get the id from the URL parameter
-		filter := bson.M{"id": id}                            // filter to find the book by ID
-		result, err := coll.DeleteOne(context.TODO(), filter) // perform the delete
-		// Check if the delete was successful
-		if err != nil {
-			return c.String(http.StatusInternalServerError, "Failed to delete book")
-		}
-		if result.DeletedCount == 0 { // no book found with the given ID
-			return c.String(http.StatusNotFound, "Book not found")
-		}
-
-		// return status 200 success
-		return c.NoContent(http.StatusOK)
 	})
 
 	// We start the server and bind it to port 3030. For future references, this

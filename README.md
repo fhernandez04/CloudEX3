@@ -31,10 +31,6 @@ containers are as follows:
 2. Use a Multi-stage Dockerfile to minimize the size of the image.
 3. Publish to a public container registry (e.g., Docker Hub) your images.
 
-TODO: solo se inicializan los datos una vez (por ej en el endpoint de Get), y ya despues
-el resto de contenedores se conectan a la base de datos, solo asegurate de que el primero
-que se levanta en el docker compose es el contenedor Get
-
 ### Requirements and Test Scenarios
 
 #### Requirements

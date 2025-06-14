@@ -168,7 +168,7 @@ func main() {
 
 	// You can use such name for the database and collection, or come up with
 	// one by yourself!
-	coll, err := prepareDatabase(client, "exercise-1", "information")
+	coll, err := prepareDatabase(client, "exercise-3", "information")
 
 	prepareData(client, coll)
 

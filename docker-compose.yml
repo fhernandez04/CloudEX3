@@ -1,19 +1,70 @@
-# Versión del esquema de Docker Compose
 version: '3.8'
 
 services:
-  # Servicio principal: aplicación Go
-  app:
-    image: fhernandez004/cloudex2:latest  # Imagen publicada en Docker Hub
-    ports:
-      - "3030:3030"  # Expone el puerto 3030 del contenedor en el puerto 3030 del host
-    depends_on:
-      - mongodb  # Indica que 'app' debe arrancar después del servicio 'mongodb'
+  homepage:
     environment:
       # Variable de entorno que la app usará para conectarse a MongoDB
       - DATABASE_URI=mongodb://mongodb:testmongo@mongodb:27017/mydb?authSource=admin
-    restart: unless-stopped  # Reinicia automáticamente si falla, a menos se haga manualmente
+    depends_on:
+        - get
+        - mongodb
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3030:3030"
 
+  get:
+    environment:
+      # Variable de entorno que la app usará para conectarse a MongoDB
+      - DATABASE_URI=mongodb://mongodb:testmongo@mongodb:27017/mydb?authSource=admin
+    depends_on:
+      - mongodb
+    build:
+      context: .
+      dockerfile: Dockerfile.get
+    ports:
+      - "8081:3030"
+
+  post:
+    environment:
+      # Variable de entorno que la app usará para conectarse a MongoDB
+      - DATABASE_URI=mongodb://mongodb:testmongo@mongodb:27017/mydb?authSource=admin
+    depends_on:
+        - get
+        - mongodb
+    build:
+      context: .
+      dockerfile: Dockerfile.post
+    ports:
+      - "8082:3030"
+
+  put:
+    environment:
+      # Variable de entorno que la app usará para conectarse a MongoDB
+      - DATABASE_URI=mongodb://mongodb:testmongo@mongodb:27017/mydb?authSource=admin
+    depends_on:
+        - get
+        - mongodb
+    build:
+      context: .
+      dockerfile: Dockerfile.put
+    ports:
+      - "8083:3030"
+
+  delete:
+    environment:
+      # Variable de entorno que la app usará para conectarse a MongoDB
+      - DATABASE_URI=mongodb://mongodb:testmongo@mongodb:27017/mydb?authSource=admin
+    depends_on:
+        - get
+        - mongodb
+    build:
+      context: .
+      dockerfile: Dockerfile.delete
+    ports:
+      - "8084:3030"
+  
   # Servicio de base de datos MongoDB
   mongodb:
     image: mongo:6  # Usa la imagen oficial de MongoDB versión 6

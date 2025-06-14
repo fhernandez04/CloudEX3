@@ -2,10 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"log"
 	"net/http"
-	"slices"
 	"time"
 
 	"os"
@@ -29,99 +26,6 @@ type BookStore struct {
 	BookEdition string             `bson:"edition,omitempty" json:"edition"`
 	BookPages   string             `bson:"pages,omitempty" json:"pages"`
 	BookYear    string             `bson:"year,omitempty" json:"year"`
-}
-
-// Here we make sure the connection to the database is correct and initial
-// configurations exists. Otherwise, we create the proper database and collection
-// we will store the data.
-// To ensure correct management of the collection, we create a return a
-// reference to the collection to always be used. Make sure if you create other
-// files, that you pass the proper value to ensure communication with the
-// database
-// More on what bson means: https://www.mongodb.com/docs/drivers/go/current/fundamentals/bson/
-func prepareDatabase(client *mongo.Client, dbName string, collecName string) (*mongo.Collection, error) {
-	db := client.Database(dbName)
-
-	names, err := db.ListCollectionNames(context.TODO(), bson.D{{}})
-	if err != nil {
-		return nil, err
-	}
-	if !slices.Contains(names, collecName) {
-		cmd := bson.D{{Key: "create", Value: collecName}}
-		var result bson.M
-		if err = db.RunCommand(context.TODO(), cmd).Decode(&result); err != nil {
-			log.Fatal(err)
-			return nil, err
-		}
-	}
-
-	coll := db.Collection(collecName)
-	return coll, nil
-}
-
-// Here we prepare some fictional data and we insert it into the database
-// the first time we connect to it. Otherwise, we check if it already exists.
-func prepareData(client *mongo.Client, coll *mongo.Collection) {
-	startData := []BookStore{
-		{
-			ID:          "example1",
-			BookName:    "The Vortex",
-			BookAuthor:  "José Eustasio Rivera",
-			BookEdition: "958-30-0804-4",
-			BookPages:   "292",
-			BookYear:    "1924",
-		},
-		{
-			ID:          "example2",
-			BookName:    "Frankenstein",
-			BookAuthor:  "Mary Shelley",
-			BookEdition: "978-3-649-64609-9",
-			BookPages:   "280",
-			BookYear:    "1818",
-		},
-		{
-			ID:          "example3",
-			BookName:    "The Black Cat",
-			BookAuthor:  "Edgar Allan Poe",
-			BookEdition: "978-3-99168-238-7",
-			BookPages:   "280",
-			BookYear:    "1843",
-		},
-	}
-
-	// This syntax helps us iterate over arrays. It behaves similar to Python
-	// However, range always returns a tuple: (idx, elem). You can ignore the idx
-	// by using _.
-	// In the topic of function returns: sadly, there is no standard on return types from function. Most functions
-	// return a tuple with (res, err), but this is not granted. Some functions
-	// might return a ret value that includes res and the err, others might have
-	// an out parameter.
-	for _, book := range startData {
-		cursor, err := coll.Find(context.TODO(), book)
-		if err != nil {
-			panic(err)
-		}
-		var results []BookStore
-		if err = cursor.All(context.TODO(), &results); err != nil {
-			panic(err)
-		}
-		if len(results) > 1 {
-			log.Fatal("more records were found")
-		} else if len(results) == 0 {
-			result, err := coll.InsertOne(context.TODO(), book)
-			if err != nil {
-				panic(err)
-			} else {
-				fmt.Printf("%+v\n", result)
-			}
-
-		} else {
-			for _, res := range results {
-				cursor.Decode(&res)
-				fmt.Printf("%+v\n", res)
-			}
-		}
-	}
 }
 
 func main() {
@@ -150,11 +54,8 @@ func main() {
 		}
 	}()
 
-	// You can use such name for the database and collection, or come up with
-	// one by yourself!
-	coll, err := prepareDatabase(client, "exercise-1", "information")
-
-	prepareData(client, coll)
+	// connection to the database and collection
+	coll := client.Database("exercise-3").Collection("information")
 
 	// Here we prepare the server
 	e := echo.New()
