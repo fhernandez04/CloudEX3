@@ -2,8 +2,6 @@
 
 ### The challenge
 
-To succeed in this assignment, you must do the following:
-
 1. Use Docker Compose to orchestrate your **five** containers and deploy **NGINX**
 to control the traffic between your services based on the request method. The
 containers are as follows:
